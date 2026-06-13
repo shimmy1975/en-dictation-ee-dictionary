@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>English Dictation App</title>
+
+  <style>
+    :root {
+      --bg: #000000;
+      --panel: #0f0f0f;
+      --panel2: #171717;
+      --border: #2a2a2a;
+      --text-main: #fff36a;
+      --text-muted: #9a9a9a;
+      --text-white: #ffffff;
+      --accent: #72f0c7;
+      --accent2: #8ee6ff;
+      --danger: #ff7a7a;
+      --latest-bg: rgba(255, 243, 106, 0.10);
+      --latest-border: rgba(255, 243, 106, 0.24);
+      --dict-bg: rgba(114, 240, 199, 0.08);
+      --btn-bg: #232323;
+      --btn-on: #1e3828;
+      --btn-on-border: #3f7f52;
+      --btn-warn: #3a2a09;
+      --btn-warn-border: #8f6a20;
+      --btn-undo: #1b2f39;
+      --btn-undo-border: #37647c;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    #topbar {
+      padding: 8px 10px 8px 10px;
+      background: #050505;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      z-index: 20;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid #444;
+      background: var(--btn-bg);
+      color: var(--text-white);
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+      min-height: 36px;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn.primary {
+      background: #2b2b2b;
+    }
+
+    .btn.warn {
+      background: var(--btn-warn);
+      border-color: var(--btn-warn-border);
+      color: #ffeab5;
+    }
+
+    .btn.undo {
+      background: var(--btn-undo);
+      border-color: var(--btn-undo-border);
+      color: #def4ff;
+    }
+
+    .btn.help {
+      margin-left: auto;
+      width: 36px;
+      min-width: 36px;
+      padding: 0;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    #miniStatus {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 16px;
+    }
+
+    #statusDot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #666;
+      flex: 0 0 auto;
+    }
+
+    #container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 10px 160px 10px;
+      scroll-behavior: smooth;
+    }
+
+    #result {
+      font-size: 20px; /* reduced from prior yellow size; sits between old subtitle and old translation size */
+      line-height: 1.6;
+      font-weight: 700;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .line-block {
+      margin: 0 0 10px 0;
+      border-radius: 12px;
+      padding: 8px 9px;
+      border: 1px solid transparent;
+    }
+
+    .line-block.latest {
+      background: var(--latest-bg);
+      border-color: var(--latest-border);
+    }
+
+    .line-block.interim {
+      opacity: 0.96;
+    }
+
+    .line-en {
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    .word {
+      cursor: pointer;
+    }
+
+    .word.active {
+      background: rgba(114, 240, 199, 0.17);
+      border-radius: 6px;
+      padding: 0 2px;
+    }
+
+    #dictionaryPanel {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 25;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      padding: 10px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
+      max-height: 42vh;
+      overflow-y: auto;
+    }
+
+    #dictHeaderRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    #dictHeader {
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    #dictClose {
+      appearance: none;
+      border: 1px solid #3a3a3a;
+      background: #191919;
+      color: #d8ffff;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #dictionaryBody {
+      color: var(--accent2);
+      font-size: 16px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .dict-word {
+      font-size: 18px;
+      font-weight: 800;
+      color: #d9fff5;
+      margin-bottom: 4px;
+    }
+
+    .dict-meta {
+      font-size: 13px;
+      color: #b9efe1;
+      margin-bottom: 8px;
+    }
+
+    .dict-section {
+      margin-top: 8px;
+      background: var(--dict-bg);
+      border-radius: 10px;
+      padding: 8px 9px;
+    }
+
+    .dict-label {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #d6fff3;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      padding: 2px 6px;
+      margin-bottom: 6px;
+    }
+
+    .dict-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .dict-list li {
+      margin-bottom: 5px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #helpModal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(0,0,0,0.68);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    #helpModal.open {
+      display: flex;
+    }
+
+    #helpCard {
+      width: min(100%, 520px);
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      color: #f2f2f2;
+    }
+
+    #helpTitle {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    #helpText {
+      font-size: 14px;
+      line-height: 1.55;
+      color: #dddddd;
+    }
+
+    #helpText ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
+    #helpText li {
+      margin-bottom: 6px;
+    }
+
+    #helpActions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    #helpCloseBtn {
+      appearance: none;
+      border: 1px solid #3f7f52;
+      background: #1d3424;
+      color: #e4fff0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <div id="controls">
+      <button id="recordBtn" class="btn primary">Record</button>
+      <button id="splitBtn" class="btn warn">Split</button>
+      <button id="clearBtn" class="btn">Clear</button>
+      <button id="undoBtn" class="btn undo" disabled>Undo</button>
+      <button id="helpBtn" class="btn help" aria-label="Help">?</button>
+    </div>
+
+    <div id="miniStatus">
+      <span id="statusDot"></span>
+      <span id="statusText">Stopped</span>
+    </div>
+  </div>
+
+  <div id="container">
+    <div id="result">
+      <div class="line-block latest">
+        <div class="line-en">Tap Record to start.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="dictionaryPanel">
+    <div id="dictHeaderRow">
+      <div id="dictHeader">English Dictionary</div>
+      <button id="dictClose" class="hidden">Close</button>
+    </div>
+    <div id="dictionaryBody">Tap any word to see its English definition.</div>
+  </div>
+
+  <div id="helpModal" aria-hidden="true">
+    <div id="helpCard">
+      <div id="helpTitle">Quick Help</div>
+      <div id="helpText">
+        This app shows summarized English subtitles only.
+        <ul>
+          <li><strong>Record</strong>: start / stop listening</li>
+          <li><strong>Split</strong>: force the current interim subtitle into a new line</li>
+          <li><strong>Clear</strong>: clear all text</li>
+          <li><strong>Undo</strong>: restore the most recent cleared state</li>
+          <li><strong>Tap a word</strong>: open an English dictionary definition</li>
+        </ul>
+      </div>
+      <div id="helpActions">
+        <button id="helpCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      const recordBtn = document.getElementById("recordBtn");
+      const splitBtn = document.getElementById("splitBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const undoBtn = document.getElementById("undoBtn");
+      const helpBtn = document.getElementById("helpBtn");
+      const helpModal = document.getElementById("helpModal");
+      const helpCloseBtn = document.getElementById("helpCloseBtn");
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
+      const container = document.getElementById("container");
+      const resultDiv = document.getElementById("result");
+      const dictionaryBody = document.getElementById("dictionaryBody");
+      const dictClose = document.getElementById("dictClose");
+
+      const MAX_CHARS_PER_LINE = 500;
+
+      const state = {
+        isListening: false,
+        lines: [], // { id, rawText, displayText }
+        interimRawText: "",
+        interimDisplayText: "",
+        userInteracting: false,
+        interactionTimer: null,
+        selectionTimer: null,
+        restartTimer: null,
+        activeWordEl: null,
+        nextId: 1,
+        undoSnapshot: null,
+        dictionaryCache: {}
+      };
+
+      if (!SpeechRecognition) {
+        statusText.textContent = "Speech recognition is not supported in this browser.";
+        statusDot.style.background = "#ff7a7a";
+        recordBtn.disabled = true;
+        splitBtn.disabled = true;
+        clearBtn.disabled = true;
+        undoBtn.disabled = true;
+        helpBtn.disabled = false;
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      function setStatus(text, color) {
+        statusText.textContent = text;
+        statusDot.style.background = color || "#666";
+      }
+
+      function markInteracting() {
+        state.userInteracting = true;
+        clearTimeout(state.interactionTimer);
+        state.interactionTimer = setTimeout(() => {
+          state.userInteracting = false;
+        }, 1800);
+      }
+
+      function hasSelection() {
+        const sel = window.getSelection();
+        return !!(sel && sel.toString().trim().length > 0);
+      }
+
+      function isNearBottom(threshold = 100) {
+        return (container.scrollHeight - container.scrollTop - container.clientHeight) < threshold;
+      }
+
+      function maybeAutoScroll() {
+        if (state.userInteracting) return;
+        if (hasSelection()) return;
+        if (!isNearBottom(140)) return;
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function escapeHtml(text) {
+        return text
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function tokenize(text) {
+        return text.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*|\s+|[^A-Za-z\s]+/g) || [];
+      }
+
+      function buildWordHtml(text) {
+        const tokens = tokenize(text);
+        let html = "";
+
+        for (const token of tokens) {
+          if (/^\s+$/.test(token)) {
+            html += token.replace(/ /g, "&nbsp;");
+          } else if (/^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(token)) {
+            const safe = escapeHtml(token);
+            html += `<span class="word" data-word="${safe}">${safe}</span>`;
+          } else {
+            html += `<span>${escapeHtml(token)}</span>`;
+          }
+        }
+        return html;
+      }
+
+      function splitLongText(text, maxChars = MAX_CHARS_PER_LINE) {
+        const cleaned = (text || "").trim();
+        if (!cleaned) return [];
+
+        const result = [];
+        let remaining = cleaned;
+
+        while (remaining.length > maxChars) {
+          let cut = maxChars;
+          const searchStart = Math.max(0, maxChars - 80);
+          const candidate = remaining.slice(searchStart, maxChars + 1);
+
+          let relativePos = -1;
+          const punctuationMatch = candidate.match(/.*[.!?;,:\n]/);
+          if (punctuationMatch && punctuationMatch[0]) {
+            relativePos = punctuationMatch[0].length - 1;
+          } else {
+            const lastSpace = candidate.lastIndexOf(" ");
+            if (lastSpace > 0) relativePos = lastSpace;
+          }
+
+          if (relativePos >= 0) {
+            cut = searchStart + relativePos + 1;
+          }
+
+          const piece = remaining.slice(0, cut).trim();
+          if (piece) result.push(piece);
+          remaining = remaining.slice(cut).trim();
+        }
+
+        if (remaining) result.push(remaining);
+        return result;
+      }
+
+      // Summarized dictation is always ON
+      function cleanUpDictationText(text) {
+        if (!text) return "";
+
+        let t = text;
+        t = t.replace(/\b(uh|um|er|ah)\b/gi, "");
+        t = t.replace(/\b(you know|i mean)\b/gi, "");
+        t = t.replace(/\b(like)\b/gi, "");
+        t = t.replace(/\b(\w+)(\s+\1\b)+/gi, "$1");
+        t = t.replace(/\s+([,.!?;:])/g, "$1");
+        t = t.replace(/\s+/g, " ").trim();
+
+        if (t.length > 0) {
+          t = t.charAt(0).toUpperCase() + t.slice(1);
+        }
+        return t;
+      }
+
+      function getDisplayText(rawText) {
+        return cleanUpDictationText(rawText);
+      }
+
+      function cloneLines(lines) {
+        return lines.map(line => ({
+          id: line.id,
+          rawText: line.rawText,
+          displayText: line.displayText
+        }));
+      }
+
+      function saveUndoSnapshot() {
+        state.undoSnapshot = {
+          lines: cloneLines(state.lines),
+          interimRawText: state.interimRawText,
+          interimDisplayText: state.interimDisplayText,
+          nextId: state.nextId
+        };
+        undoBtn.disabled = false;
+      }
+
+      function restoreUndoSnapshot() {
+        if (!state.undoSnapshot) return;
+        state.lines = cloneLines(state.undoSnapshot.lines);
+        state.interimRawText = state.undoSnapshot.interimRawText;
+        state.interimDisplayText = state.undoSnapshot.interimDisplayText;
+        state.nextId = state.undoSnapshot.nextId;
+        state.undoSnapshot = null;
+        undoBtn.disabled = true;
+        render();
+      }
+
+      function clearActiveWord() {
+        if (state.activeWordEl) {
+          state.activeWordEl.classList.remove("active");
+          state.activeWordEl = null;
+        }
+      }
+
+      function render() {
+        let html = "";
+
+        if (state.lines.length === 0 && !state.interimDisplayText) {
+          html = `
+            <div class="line-block latest">
+              <div class="line-en">Tap Record to start.</div>
+            </div>
+          `;
+        } else {
+          state.lines.forEach((line, index) => {
+            const isLatestFinal = index === state.lines.length - 1 && !state.interimDisplayText;
+            html += `
+              <div class="line-block ${isLatestFinal ? "latest" : ""}">
+                <div class="line-en">${buildWordHtml(line.displayText)}</div>
+              </div>
+            `;
+          });
+
+          if (state.interimDisplayText) {
+            html += `
+              <div class="line-block latest interim">
+                <div class="line-en">${buildWordHtml(state.interimDisplayText)}</div>
+              </div>
+            `;
+          }
+        }
+
+        resultDiv.innerHTML = html;
+        maybeAutoScroll();
+      }
+
+      function appendFinalText(rawText) {
+        const pieces = splitLongText(rawText, MAX_CHARS_PER_LINE);
+        pieces.forEach(piece => {
+          state.lines.push({
+            id: state.nextId++,
+            rawText: piece,
+            displayText: getDisplayText(piece)
+          });
+        });
+      }
+
+      function forceSplitInterim() {
+        const text = (state.interimRawText || "").trim();
+        if (!text) return;
+        appendFinalText(text);
+        state.interimRawText = "";
+        state.interimDisplayText = "";
+        render();
+      }
+
+      function openHelp() {
+        helpModal.classList.add("open");
+        helpModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeHelp() {
+        helpModal.classList.remove("open");
+        helpModal.setAttribute("aria-hidden", "true");
+      }
+
+      function renderDictionaryNotFound(word) {
+        dictionaryBody.innerHTML = `
+          <div class="dict-word">${escapeHtml(word)}</div>
+          <div class="dict-section">
+            <div class="dict-label">RESULT</div>
+            No dictionary entry was found.
+          </div>
+        `;
+        dictClose.classList.remove("hidden");
+      }
+
+      function renderDictionaryEntry(data, queryWord) {
+        const entry = Array.isArray(data) ? data[0] : data;
+        if (!entry || !entry.meanings || !entry.meanings.length) {
+          renderDictionaryNotFound(queryWord);
+          return;
+        }
+
+        const phonetic = entry.phonetic || "";
+        const word = entry.word || queryWord;
+        const meanings = entry.meanings.slice(0, 3);
+
+        let html = `<div class="dict-word">${escapeHtml(word)}</div>`;
+        html += `<div class="dict-meta">${phonetic ? escapeHtml(phonetic) : "English-English definition"}</div>`;
+
+        meanings.forEach((meaning) => {
+          const defs = (meaning.definitions || []).slice(0, 3);
+          html += `<div class="dict-section">`;
+          html += `<div class="dict-label">${escapeHtml((meaning.partOfSpeech || "definition").toUpperCase())}</div>`;
+          html += `<ol class="dict-list">`;
+          defs.forEach(def => {
+            html += `<li>${escapeHtml(def.definition || "")}`;
+            if (def.example) {
+              html += `<div style="margin-top:4px;color:#d6fff3;font-size:14px;">Example: ${escapeHtml(def.example)}</div>`;
+            }
+            html += `</li>`;
+          });
+          html += `</ol>`;
+
+          if (meaning.synonyms && meaning.synonyms.length) {
+            html += `<div style="margin-top:8px;font-size:14px;color:#d6fff3;">Synonyms: ${escapeHtml(meaning.synonyms.slice(0, 8).join(", "))}</div>`;
+          }
+          html += `</div>`;
+        });
+
+        dictionaryBody.innerHTML = html;
+        dictClose.classList.remove("hidden");
+      }
+
+      async function fetchDictionary(word) {
+        const key = (word || "").trim().toLowerCase();
+        if (!key) return null;
+
+        if (state.dictionaryCache[key]) {
+          return state.dictionaryCache[key];
+        }
+
+        const endpoint = "https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(key);
+        const res = await fetch(endpoint);
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            state.dictionaryCache[key] = { notFound: true, queryWord: key };
+            return state.dictionaryCache[key];
+          }
+          throw new Error("Dictionary request failed: " + res.status);
+        }
+
+        const data = await res.json();
+        state.dictionaryCache[key] = data;
+        return data;
+      }
+
+      async function defineWord(word) {
+        const cleaned = (word || "").trim();
+        if (!cleaned) return;
+
+        dictionaryBody.textContent = "Loading definition...";
+        dictClose.classList.remove("hidden");
+
+        try {
+          const result = await fetchDictionary(cleaned);
+
+          if (result && result.notFound) {
+            renderDictionaryNotFound(cleaned);
+            return;
+          }
+
+          renderDictionaryEntry(result, cleaned);
+        } catch (e) {
+          dictionaryBody.innerHTML = `
+            <div class="dict-word">${escapeHtml(cleaned)}</div>
+            <div class="dict-section">
+              <div class="dict-label">ERROR</div>
+              Could not load the dictionary entry.
+            </div>
+          `;
+          dictClose.classList.remove("hidden");
+          console.error(e);
+        }
+      }
+
+      // Buttons
+      recordBtn.addEventListener("click", () => {
+        if (!state.isListening) {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.log("start error", e);
+          }
+        } else {
+          state.isListening = false;
+          clearTimeout(state.restartTimer);
+          try {
+            recognition.stop();
+          } catch (e) {
+            console.log("stop error", e);
+          }
+        }
+      });
+
+      splitBtn.addEventListener("click", () => {
+        markInteracting();
+        forceSplitInterim();
+      });
+
+      clearBtn.addEventListener("click", () => {
+        saveUndoSnapshot();
+        state.lines = [];
+        state.interimRawText = "";
+        state.interimDisplayText = "";
+        clearActiveWord();
+        dictionaryBody.textContent = "Tap any word to see its English definition.";
+        dictClose.classList.add("hidden");
+        render();
+      });
+
+      undoBtn.addEventListener("click", () => {
+        restoreUndoSnapshot();
+      });
+
+      dictClose.addEventListener("click", () => {
+        dictionaryBody.textContent = "Tap any word to see its English definition.";
+        dictClose.classList.add("hidden");
+        clearActiveWord();
+      });
+
+      helpBtn.addEventListener("click", openHelp);
+      helpCloseBtn.addEventListener("click", closeHelp);
+      helpModal.addEventListener("click", (e) => {
+        if (e.target === helpModal) closeHelp();
+      });
+
+      // Speech Recognition
+      recognition.onstart = () => {
+        state.isListening = true;
+        recordBtn.textContent = "Stop";
+        setStatus("Listening", "#ff7a7a");
+      };
+
+      recognition.onresult = (event) => {
+        let interim = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          let text = event.results[i][0].transcript;
+          if (!text) continue;
+          text = text.trim();
+          if (!text) continue;
+
+          if (event.results[i].isFinal) {
+            appendFinalText(text);
+          } else {
+            interim += (interim ? " " : "") + text;
+          }
+        }
+
+        const interimPieces = splitLongText(interim, MAX_CHARS_PER_LINE);
+        if (interimPieces.length > 1) {
+          for (let i = 0; i < interimPieces.length - 1; i++) {
+            appendFinalText(interimPieces[i]);
+          }
+          state.interimRawText = interimPieces[interimPieces.length - 1];
+        } else {
+          state.interimRawText = interim;
+        }
+
+        state.interimDisplayText = getDisplayText(state.interimRawText);
+        render();
+      };
+
+      recognition.onerror = (event) => {
+        console.log("speech error:", event.error);
+
+        if (event.error === "not-allowed") {
+          state.isListening = false;
+          recordBtn.textContent = "Record";
+          setStatus("Mic permission needed", "#ff7a7a");
+          return;
+        }
+
+        if (event.error !== "no-speech" && event.error !== "aborted") {
+          setStatus("Recognition error", "#ff7a7a");
+        }
+      };
+
+      recognition.onend = () => {
+        if (state.isListening) {
+          clearTimeout(state.restartTimer);
+          state.restartTimer = setTimeout(() => {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.log("restart skipped", e);
+            }
+          }, 250);
+        } else {
+          recordBtn.textContent = "Record";
+          setStatus("Stopped", "#666");
+        }
+      };
+
+      // Auto-scroll interaction lock
+      ["scroll", "touchstart", "touchmove", "mousedown", "wheel"].forEach(evt => {
+        container.addEventListener(evt, markInteracting, { passive: true });
+      });
+
+      // Word tap -> English dictionary
+      resultDiv.addEventListener("click", (e) => {
+        if (hasSelection()) return;
+
+        const el = e.target.closest(".word");
+        if (!el) return;
+
+        markInteracting();
+        clearActiveWord();
+        el.classList.add("active");
+        state.activeWordEl = el;
+
+        const word = el.getAttribute("data-word") || el.textContent || "";
+        defineWord(word);
+      });
+
+      // If a single word is selected, dictionary lookup that word too
+      document.addEventListener("selectionchange", () => {
+        clearTimeout(state.selectionTimer);
+        state.selectionTimer = setTimeout(() => {
+          const sel = window.getSelection();
+          const selected = sel && sel.toString ? sel.toString().trim() : "";
+          if (!selected) return;
+
+          const singleWord = /^[A-Za-z]+(?:['’-][A-Za-z]+)*$/.test(selected);
+          if (!singleWord) return;
+
+          markInteracting();
+          clearActiveWord();
+          defineWord(selected);
+        }, 220);
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
