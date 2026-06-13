@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>English Dictation App</title>
-
+  <meta name="viewport"
+  content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  
   <style>
     :root {
       --bg: #000000;
@@ -949,6 +951,49 @@ container.addEventListener("touchmove", (e) => {
 }, { passive: true });
 
 container.addEventListener("touchend", () => {
+  startDist = 0;
+});
+
+    let baseSize = parseFloat(localStorage.getItem("fontSize")) || 20;
+let currentScale = 1;
+let startDist = 0;
+
+function applyFontSize(size) {
+  const clamped = Math.max(14, Math.min(size, 36));
+  document.documentElement.style.setProperty("--fontSize", clamped + "px");
+  localStorage.setItem("fontSize", clamped);
+}
+
+applyFontSize(baseSize);
+
+function getDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+container.addEventListener("touchstart", (e) => {
+  if (e.touches.length === 2) {
+    startDist = getDistance(e.touches);
+    currentScale = 1;
+  }
+}, { passive: false });
+
+container.addEventListener("touchmove", (e) => {
+  if (e.touches.length === 2) {
+    e.preventDefault(); // ←これ超重要！！！
+
+    const newDist = getDistance(e.touches);
+    currentScale = newDist / startDist;
+
+    applyFontSize(baseSize * currentScale);
+  }
+}, { passive: false });
+
+container.addEventListener("touchend", () => {
+  if (currentScale !== 1) {
+    baseSize = parseFloat(localStorage.getItem("fontSize"));
+  }
   startDist = 0;
 });
     
