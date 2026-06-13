@@ -932,28 +932,7 @@ function applyFontSize(size) {
   baseFontSize = clamped;
 }
 
-// 初期反映
-applyFontSize(baseFontSize);
-
-container.addEventListener("touchstart", (e) => {
-  if (e.touches.length === 2) {
-    startDist = getDistance(e.touches);
-  }
-}, { passive: true });
-
-container.addEventListener("touchmove", (e) => {
-  if (e.touches.length === 2 && startDist > 0) {
-    const newDist = getDistance(e.touches);
-    const scale = newDist / startDist;
-    applyFontSize(baseFontSize * scale);
-  }
-}, { passive: true });
-
-container.addEventListener("touchend", () => {
-  startDist = 0;
-});
-
-    let baseSize = parseFloat(localStorage.getItem("fontSize")) || 20;
+let baseSize = parseFloat(localStorage.getItem("fontSize")) || 20;
 let currentScale = 1;
 let startDist = 0;
 
