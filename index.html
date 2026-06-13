@@ -50,6 +50,10 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
 
+    #result {
+      font-size: var(--fontSize, 20px);
+    }
+    
     #topbar {
       padding: 8px 10px 8px 10px;
       background: #050505;
@@ -909,6 +913,45 @@
 
       render();
     })();
+
+    // ===== pinch zoom font size =====
+let baseFontSize = parseFloat(localStorage.getItem("fontSize")) || 20;
+let startDist = 0;
+
+function getDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function applyFontSize(size) {
+  const clamped = Math.max(14, Math.min(size, 40)); // min/max調整
+  document.documentElement.style.setProperty("--fontSize", clamped + "px");
+  localStorage.setItem("fontSize", clamped);
+  baseFontSize = clamped;
+}
+
+// 初期反映
+applyFontSize(baseFontSize);
+
+container.addEventListener("touchstart", (e) => {
+  if (e.touches.length === 2) {
+    startDist = getDistance(e.touches);
+  }
+}, { passive: true });
+
+container.addEventListener("touchmove", (e) => {
+  if (e.touches.length === 2 && startDist > 0) {
+    const newDist = getDistance(e.touches);
+    const scale = newDist / startDist;
+    applyFontSize(baseFontSize * scale);
+  }
+}, { passive: true });
+
+container.addEventListener("touchend", () => {
+  startDist = 0;
+});
+    
   </script>
 </body>
 </html>
